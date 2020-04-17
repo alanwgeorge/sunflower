@@ -19,6 +19,7 @@ apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 apply plugin: 'kotlin-kapt'
 apply plugin: 'androidx.navigation.safeargs.kotlin'
+apply plugin: 'jacoco'
 
 android {
     compileSdkVersion rootProject.compileSdkVersion
@@ -35,7 +36,12 @@ android {
         vectorDrawables.useSupportLibrary true
     }
     buildTypes {
+        debug {
+            testCoverageEnabled true
+            minifyEnabled false
+        }
         release {
+            testCoverageEnabled false
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
@@ -47,6 +53,17 @@ android {
     // work-runtime-ktx 2.1.0 and above now requires Java 8
     kotlinOptions {
         jvmTarget = "1.8"
+    }
+
+    testOptions {
+        animationsDisabled true
+
+        unitTests {
+            includeAndroidResources = true
+        }
+    }
+    jacoco {
+        version = "0.8.5"
     }
 }
 
@@ -84,4 +101,50 @@ dependencies {
     androidTestImplementation "androidx.work:work-testing:$rootProject.workVersion"
     androidTestImplementation "com.google.truth:truth:$rootProject.truthVersion"
     testImplementation "junit:junit:$rootProject.junitVersion"
+}
+
+task jacocoTestReport(type: JacocoReport, dependsOn: ['test', 'connectedAndroidTest']) {
+    reports {
+        xml.enabled = true
+        html.enabled = true
+    }
+
+    def fileFilter = [
+            '**/R.class',
+            '**/R$*.class',
+            '**/BuildConfig.*',
+            '**/Manifest*.*',
+            '**/*$ViewInjector*.*',
+            '**/*$ViewBinder*.*',
+            '**/*Module.*', // Modules for Dagger.
+            '**/*Dagger*.*', // Dagger auto-generated code.
+            '**/*MembersInjector*.*', // Dagger auto-generated code.
+            '**/*_Provide*Factory*.*',
+            '**/*_Factory.*', //Dagger auto-generated code
+            //add libraries
+            'android/**/*.*',
+            //remove what we don't test
+            'androidTest/**/*.*',
+            'test/**/*.*',
+            '**/injector/**/*.*',
+            '**/model/**/*.*',
+            '**/mock/**/*.*',
+            '**/event/**/*.*',
+            '**/**_ViewBinding**',
+            '**/*EventType.*',
+            '**/**Mocked'
+    ]
+
+    def debugTree = fileTree(dir: "${buildDir}/tmp/kotlin-classes/debug", excludes: fileFilter)
+    def mainSrc = files(["src/main/java"])
+
+    getSourceDirectories().setFrom(files([mainSrc]))
+
+    getClassDirectories().setFrom(files([debugTree]))
+
+    getExecutionData().setFrom(fileTree(dir: "$buildDir", includes: [
+            "jacoco/testDebugUnitTest.exec",
+            "outputs/code_coverage/debugAndroidTest/connected/**/*.ec"
+
+    ]))
 }
